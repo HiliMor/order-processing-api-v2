@@ -24,6 +24,51 @@ and returns 0 under concurrent access.
 
 ---
 
+## RequestContext Design
+
+### Immutability
+All properties are set once in the constructor and never change.
+CorrelationId must remain stable for the entire request lifetime — if it changed mid-request,
+all logs and traces for that request would become untraceable.
+
+### CorrelationId → Guid
+The server generates the CorrelationId autonomously — no coordination with any other system needed.
+Guid is 128-bit, globally unique in practice, generated without shared state.
+An int would require a counter (shared mutable state) or an external sequence.
+UUID and Guid are the same standard — UUID is the RFC name, Guid is the .NET/Microsoft name.
+
+### UserAgent from IHttpContextAccessor
+RequestContext is constructed by the DI container, not by the endpoint handler.
+IHttpContextAccessor is the only way for a DI-managed service to access the current
+HttpContext without being directly in the request pipeline.
+
+---
+
+## Configuration — IOptions\<OrderProcessingOptions\>
+
+MinDelayMs and MaxDelayMs are managed via IOptions<T> with ValidateOnStart rather than
+reading directly from IConfiguration because:
+
+- **ValidateOnStart**: validation rules run at startup, before any request is served.
+  A misconfigured delay range causes a hard failure immediately, not silently at runtime.
+- **Environment flexibility**: operations teams can tune delay values per environment
+  (dev/staging/production) without touching code.
+- **Type safety**: strongly-typed options class vs string-based IConfiguration keys.
+
+---
+
+## async/await and CancellationToken
+
+Task.Delay is used instead of Thread.Sleep to simulate processing time.
+Thread.Sleep blocks the thread — under concurrent load this exhausts the thread pool.
+Task.Delay releases the thread back to the pool while waiting.
+
+CancellationToken is propagated from the HTTP pipeline into ProcessAsync and Task.Delay.
+If the client disconnects mid-request, the delay is cancelled immediately,
+avoiding wasted work on a response nobody will receive.
+
+---
+
 ## Thread Safety — StatisticsCollector
 
 Two concurrent requests writing to the same Singleton creates a race condition:
