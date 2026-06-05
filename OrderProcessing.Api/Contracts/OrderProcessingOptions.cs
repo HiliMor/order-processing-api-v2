@@ -1,0 +1,8 @@
+namespace OrderProcessing.Api.Contracts;
+
+public sealed class OrderProcessingOptions
+{
+    public const string SectionName = "OrderProcessing";
+    public int MinDelayMs { get; init; }
+    public int MaxDelayMs { get; init; }
+}
