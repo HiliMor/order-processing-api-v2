@@ -60,7 +60,7 @@ public sealed class StatsEdgeCaseSpecs : IClassFixture<OrderApiFactory>
     }
 
     [Fact]
-    public async Task ProcessOrder_ShouldReturnEmptyUserAgent_WhenNotProvided()
+    public async Task ProcessOrder_ShouldReturnUnknownUserAgent_WhenNotProvided()
     {
         var response = await _client.PostAsJsonAsync(
             "/api/orders/process",

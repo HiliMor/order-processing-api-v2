@@ -148,14 +148,16 @@ to avoid exposing server implementation details to potential attackers.
 
 ## Dependency Security
 
-Transitive packages in the test project were pinned to patched versions after a vulnerability scan:
-- `System.Net.Http` → 4.3.4
-- `System.Text.Json` → 8.0.5
-- `System.Text.RegularExpressions` → 4.3.1
+Top-level test packages were updated to their latest versions to resolve transitive vulnerabilities:
+- `Microsoft.AspNetCore.Mvc.Testing` → 8.0.15
+- `Microsoft.NET.Test.Sdk` → 17.13.0
+- `xunit` → 2.9.3
+- `xunit.runner.visualstudio` → 3.0.0
 
-These are test-only dependencies — not loaded in production. However, a clean scan
-(`dotnet list package --vulnerable --include-transitive`) is part of a standard CI pipeline
-and should pass cleanly before any submission or deployment.
+Updating the top-level packages is preferred over pinning transitive dependencies directly,
+as it keeps the dependency graph clean and maintainable.
+A clean scan (`dotnet list package --vulnerable --include-transitive`) is part of a standard
+CI pipeline and should pass before any submission or deployment.
 
 ---
 

@@ -1,9 +1,9 @@
-using OrderProcessing.Api.Validation;
-
 namespace OrderProcessing.Api.Services;
 
 public sealed class RequestContext : IRequestContext
 {
+    private const int MaxUserAgentLength = 256;
+
     public Guid CorrelationId { get; } = Guid.NewGuid();
     public DateTime StartTimeUtc { get; } = DateTime.UtcNow;
     public string UserAgent { get; }
@@ -19,8 +19,8 @@ public sealed class RequestContext : IRequestContext
         }
         else
         {
-            UserAgent = raw.Length > OrderValidator.MaxOrderIdLength
-                ? raw[..OrderValidator.MaxOrderIdLength]
+            UserAgent = raw.Length > MaxUserAgentLength
+                ? raw[..MaxUserAgentLength]
                 : raw;
         }
     }

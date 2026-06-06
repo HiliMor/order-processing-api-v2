@@ -6,35 +6,46 @@ Minimal API demonstrating DI lifetimes, concurrency, and state boundaries.
 
 - `POST /api/orders/process` — simulate order processing, returns CorrelationId and duration
 - `GET /api/orders/stats` — returns total orders, average duration, last 5 durations
+- `GET /health` — liveness check
+
+## Service Lifetime Decisions
+
+| Service | Lifetime | Reason |
+|---|---|---|
+| `RequestContext` | Scoped | Holds per-request data (CorrelationId, UserAgent). Must be isolated per request. |
+| `OrderProcessor` | Scoped | Depends on RequestContext. Captive dependency if Singleton. |
+| `StatisticsCollector` | Singleton | Accumulates application-wide metrics. Must survive across requests. |
+| `RandomGenerator` | Singleton | Stateless. Uses `Random.Shared` — thread-safe since .NET 6. |
+
+## Runtime Flow
+
+```mermaid
+flowchart TD
+    A["POST /api/orders/process"] --> B["OrderValidator"]
+    B --> C["OrderProcessor (Scoped)"]
+    C --> D["RequestContext (Scoped)\nCorrelationId · UserAgent"]
+    C --> E["RandomGenerator (Singleton)\nRandom delay"]
+    C --> F["StatisticsCollector (Singleton)\nThread-safe metrics"]
+    G["GET /api/orders/stats"] -->|reads| F
+    H["GET /health"] --> I["Liveness: Healthy"]
+```
 
 ## Project Structure
 
 ```
 OrderProcessing.Api/
-  Contracts/          # Request/response records and configuration options
-  DependencyInjection/# Service registration
-  Services/           # IRequestContext, IOrderProcessor, IStatisticsCollector, IRandomGenerator
-  Validation/         # OrderValidator
-  Program.cs          # Wiring: middleware, DI, endpoints
+  Contracts/           # Request/response records and configuration options
+  DependencyInjection/ # Service registration
+  Services/            # IRequestContext, IOrderProcessor, IStatisticsCollector, IRandomGenerator
+  Validation/          # OrderValidator
+  Program.cs           # Wiring: middleware, DI, endpoints
 
 OrderProcessing.Api.Tests/
-  OrderApiSpecs.cs        # Integration tests — HTTP end-to-end
-  ServiceLifetimeSpecs.cs # DI lifetime verification
-  BugDemoSpecs.cs         # Intentional bug demonstration and fix
-  StatsEdgeCaseSpecs.cs   # Input validation and zero-stats baseline
-```
-
-## Runtime Flow
-
-```
-POST /api/orders/process
-  → OrderValidator         (validate orderId)
-  → OrderProcessor (Scoped)
-      → RequestContext (Scoped)   — CorrelationId, UserAgent per request
-      → RandomGenerator (Singleton) — thread-safe random delay
-      → StatisticsCollector (Singleton) — application-wide metrics
-GET /api/orders/stats
-  → StatisticsCollector (Singleton)
+  OrderApiSpecs.cs            # Integration tests — HTTP end-to-end
+  ServiceLifetimeSpecs.cs     # DI lifetime verification
+  BugDemoSpecs.cs             # Intentional bug demonstration and fix
+  StatsEdgeCaseSpecs.cs       # Input validation and zero-stats baseline
+  RateLimitAndHealthSpecs.cs  # Rate limiting, health check, concurrency
 ```
 
 ## Run
@@ -54,7 +65,7 @@ dotnet run --project OrderProcessing.Api/OrderProcessing.Api.csproj
 RequestContext holds data unique to a single HTTP request: CorrelationId, UserAgent, and StartTime.
 All properties are set once in the constructor and never change (immutable).
 If registered as Singleton, one instance would be shared across all concurrent requests —
-all requests would carry the CorrelationId and UserAgent captured at application startup.
+all requests would carry the CorrelationId and UserAgent captured when the Singleton was first resolved.
 Request A and Request B would be indistinguishable in logs.
 In a system with UserId, this would be a critical security vulnerability:
 User A could see User B's data.
