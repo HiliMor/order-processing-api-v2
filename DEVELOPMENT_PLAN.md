@@ -38,38 +38,66 @@ Protects the endpoint from abuse without external dependencies.
 
 Files: `Program.cs`
 
-## Step 7 — Security Headers
-Remove Server header (already done via Kestrel config).
-Add X-Content-Type-Options and X-Frame-Options response headers.
+## Step 7 — Security
+Add HTTPS redirection, security response headers (X-Content-Type-Options, X-Frame-Options),
+and suppress Server header via Kestrel. Add structured logging to OrderProcessor.
 
-Files: `Program.cs`
+Files: `Program.cs`, `Services/OrderProcessor.cs`
 
-## Step 8 — Structured Logging
-Add ILogger to OrderProcessor. Log correlation ID, order ID, and duration
-on each processed order for observability.
-
-Files: `Services/OrderProcessor.cs`
-
-## Step 9 — Integration Tests
+## Step 8 — Integration Tests
 Test the API end-to-end over HTTP using WebApplicationFactory.
-Cover happy path, parallel requests, and stats aggregation.
+
+Coverage targets:
+- POST /api/orders/process — valid request returns 200 with CorrelationId and DurationMs
+- POST /api/orders/process — 20 parallel requests all return 200 (concurrency)
+- GET /api/orders/stats — TotalOrdersProcessed >= 20, average > 0, last five <= 5
 
 Files: `Tests/OrderApiSpecs.cs`, `Tests/OrderApiFactory.cs`
 
-## Step 10 — Lifetime Tests
+## Step 9 — Lifetime Tests
 Verify DI container registrations directly — without HTTP.
-Assert Scoped isolation and Singleton sharing.
+
+Coverage targets:
+- RequestContext: same instance within scope, different instance across scopes (Scoped)
+- StatisticsCollector: same instance across all scopes (Singleton)
 
 Files: `Tests/ServiceLifetimeSpecs.cs`
 
-## Step 11 — Bug Demonstration
+## Step 10 — Bug Demonstration
 Demonstrate RequestContext-as-Singleton bug and its fix.
-Assert.Same proves shared instance; Assert.NotSame proves isolation after fix.
+
+Coverage targets:
+- Wrong lifetime: Assert.Same (same object) + Assert.Equal (same CorrelationId)
+- Fixed lifetime: Assert.NotSame (different objects) + Assert.NotEqual (different CorrelationId)
 
 Files: `Tests/BugDemoSpecs.cs`
 
-## Step 12 — Edge Case Tests
-Cover empty orderId, oversized orderId, and zero-stats baseline.
-StatsBaselineSpecs in a separate class to ensure a fresh StatisticsCollector.
+## Step 11 — Edge Case Tests
+Cover input validation branches and zero-stats baseline.
+
+Coverage targets:
+- OrderValidator: empty orderId → 400 (IsNullOrWhiteSpace branch)
+- OrderValidator: orderId > 256 chars → 400 (length branch)
+- StatisticsCollector: GetSnapshot with zero orders → average=0 branch
+- StatsBaselineSpecs isolated in its own class → fresh StatisticsCollector Singleton
 
 Files: `Tests/StatsEdgeCaseSpecs.cs`
+
+---
+
+## Test Coverage Strategy
+
+All branches in production code must be exercised by at least one test:
+
+| Branch | Covered by |
+|---|---|
+| OrderValidator — null/empty orderId | StatsEdgeCaseSpecs |
+| OrderValidator — orderId too long | StatsEdgeCaseSpecs |
+| OrderValidator — valid orderId | OrderApiSpecs |
+| StatisticsCollector.GetSnapshot — zero orders (average=0) | StatsBaselineSpecs |
+| StatisticsCollector.GetSnapshot — with orders | OrderApiSpecs |
+| StatisticsCollector.Record — queue trim at 5 | OrderApiSpecs (parallel) |
+| RequestContext — Scoped isolation | ServiceLifetimeSpecs |
+| StatisticsCollector — Singleton sharing | ServiceLifetimeSpecs |
+| Wrong lifetime bug | BugDemoSpecs |
+| Fixed lifetime | BugDemoSpecs |
