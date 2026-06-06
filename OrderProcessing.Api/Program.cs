@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using OrderProcessing.Api.Contracts;
 using OrderProcessing.Api.DependencyInjection;
 using OrderProcessing.Api.Services;
@@ -17,6 +18,21 @@ builder.Services.AddOrderProcessingServices();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var rateLimitPerMinute = builder.Configuration
+    .GetSection(OrderProcessingOptions.SectionName)
+    .GetValue<int>("RateLimitPerMinute", 100);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+        RateLimitPartition.GetFixedWindowLimiter("global", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = rateLimitPerMinute,
+            Window = TimeSpan.FromMinutes(1)
+        }));
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 var app = builder.Build();
 
 app.UseExceptionHandler(errorApp =>
@@ -27,6 +43,8 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(new { error = "Unexpected server error." });
     });
 });
+
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
