@@ -44,6 +44,7 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
+app.UseHttpsRedirection();
 app.UseRateLimiter();
 
 app.Use(async (context, next) =>
