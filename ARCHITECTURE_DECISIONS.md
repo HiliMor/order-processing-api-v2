@@ -43,21 +43,25 @@ UUID and Guid are the same standard — UUID is the RFC name, Guid is the .NET/M
 
 ### UserAgent from IHttpContextAccessor
 RequestContext is constructed by the DI container, not by the endpoint handler.
-IHttpContextAccessor is the only way for a DI-managed service to access the current
-HttpContext without being directly in the request pipeline.
+`IHttpContextAccessor` is the standard mechanism used here to access the current
+`HttpContext` from a DI-managed service without passing HTTP-specific values through every caller.
 
 ---
 
 ## Configuration — IOptions\<OrderProcessingOptions\>
 
-MinDelayMs and MaxDelayMs are managed via IOptions<T> with ValidateOnStart rather than
-reading directly from IConfiguration because:
+`MinDelayMs`, `MaxDelayMs`, and `RateLimitPerMinute` are bound to `OrderProcessingOptions`
+and validated with `ValidateOnStart`:
 
 - **ValidateOnStart**: validation rules run at startup, before any request is served.
-  A misconfigured delay range causes a hard failure immediately, not silently at runtime.
+  An invalid delay range or rate limit causes a hard failure immediately, not silently at runtime.
 - **Environment flexibility**: operations teams can tune delay values per environment
   (dev/staging/production) without touching code.
-- **Type safety**: strongly-typed options class vs string-based IConfiguration keys.
+- **Type safety**: `OrderProcessor` consumes a strongly typed options object instead of
+  reading string-based configuration keys.
+
+The rate-limiter policy is constructed once during service registration, so it reads the same
+configuration section at startup rather than resolving `IOptions<T>` per request.
 
 ---
 
@@ -112,11 +116,12 @@ the appropriate solutions would be:
 ## Input Validation
 
 orderId validation is extracted to a dedicated `OrderValidator` class rather than living
-inline in Program.cs. Program.cs should wire things together, not contain business rules.
+inside the endpoint mapping. Program.cs should wire things together, not contain business rules.
 
 Constraints:
 - orderId must not be null or whitespace
-- orderId must not exceed 256 characters (common HTTP infrastructure limit)
+- orderId must not exceed 256 characters (a defensive application limit that bounds log
+  and response payload size)
 - orderId is a string, not int: the client generates it, supports any format,
   and enables the Idempotency Key Pattern in future.
 

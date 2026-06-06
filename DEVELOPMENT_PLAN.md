@@ -21,22 +21,22 @@ Register all services in DI container with correct lifetimes.
 Files: `Services/*.cs`, `DependencyInjection/ServiceCollectionExtensions.cs`
 
 ## Step 4 — Configuration (IOptions)
-Add OrderProcessingOptions with MinDelayMs/MaxDelayMs.
+Add OrderProcessingOptions with MinDelayMs, MaxDelayMs, and RateLimitPerMinute.
 Add ValidateOnStart to catch misconfiguration at startup.
 
-Files: `Contracts/OrderProcessingOptions.cs`, `appsettings.json`, `Program.cs`
+Files: `Contracts/OrderProcessingOptions.cs`, `appsettings.json`, `DependencyInjection/ServiceCollectionExtensions.cs`
 
 ## Step 5 — Input Validation
 Extract orderId validation to a dedicated OrderValidator class.
 Keep Program.cs clean — wiring only, no business logic.
 
-Files: `Validation/OrderValidator.cs`, `Program.cs`
+Files: `Validation/OrderValidator.cs`, `Endpoints/OrderEndpoints.cs`
 
 ## Step 6 — Rate Limiting
 Add fixed-window rate limiting using .NET 8 built-in middleware.
 Protects the endpoint from abuse without external dependencies.
 
-Files: `Program.cs`
+Files: `DependencyInjection/ServiceCollectionExtensions.cs`, `Endpoints/OrderEndpoints.cs`, `Program.cs`
 
 ## Step 7 — Security
 Add HTTPS redirection, security response headers (X-Content-Type-Options, X-Frame-Options),
