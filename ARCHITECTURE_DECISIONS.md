@@ -148,7 +148,7 @@ to avoid exposing server implementation details to potential attackers.
 
 ## Dependency Security
 
-Top-level test packages were updated to their latest versions to resolve transitive vulnerabilities:
+Top-level test packages were updated to patched versions to resolve transitive vulnerabilities:
 - `Microsoft.AspNetCore.Mvc.Testing` → 8.0.15
 - `Microsoft.NET.Test.Sdk` → 17.13.0
 - `xunit` → 2.9.3
