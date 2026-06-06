@@ -123,8 +123,10 @@ Constraints:
 RequestContext registered as Singleton (wrong) vs Scoped (correct) is demonstrated
 in BugDemoSpecs. This is the most dangerous silent bug in DI:
 
-- ASP.NET Core throws InvalidOperationException in Development (ValidateScopes=true)
-- In Production it is silent (ValidateScopes=false by default)
+- This bug bypasses ASP.NET Core's scope validation entirely — a Singleton is technically
+  resolvable from anywhere, so no InvalidOperationException is thrown even in Development
+- The application starts cleanly but silently shares state across requests
+- In Production the behavior is identical — silent and dangerous (ValidateScopes=false by default)
 - Shared CorrelationId across requests makes distributed tracing useless
 - In a real system with UserId this would be a critical security vulnerability
 
