@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using OrderProcessing.Api.Services;
 
 namespace OrderProcessing.Api.Tests;
@@ -13,12 +12,12 @@ public sealed class BugDemoSpecs
         using var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseSetting("environment", "Testing");
                 builder.ConfigureServices(services =>
                 {
                     services.AddSingleton<IRequestContext, RequestContext>();
                 });
             });
-        factory.WithWebHostBuilder(b => b.UseSetting("environment", "Testing"));
 
         using var scope1 = factory.Services.CreateScope();
         using var scope2 = factory.Services.CreateScope();
