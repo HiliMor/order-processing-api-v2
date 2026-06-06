@@ -125,8 +125,9 @@ complexity with no value. In production: API Key for service-to-service, JWT for
 
 **Rate Limiting**
 .NET 8 has built-in rate limiting middleware (AddRateLimiter / UseRateLimiter).
-Not implemented because this is a local simulator, not an internet-facing service.
-Worth adding before any public deployment.
+Implemented with a fixed-window limiter: 100 requests per minute by default, configurable via appsettings.
+The limit of 100 is arbitrary for a simulator — in a real system it would be determined by
+expected client traffic patterns and server capacity under load.
 
 **OpenTelemetry / Distributed Tracing**
 CorrelationId is propagated through all responses and logs, which is the foundation
