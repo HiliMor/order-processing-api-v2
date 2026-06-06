@@ -12,6 +12,7 @@ builder.Services.AddOptions<OrderProcessingOptions>()
     .Bind(builder.Configuration.GetSection(OrderProcessingOptions.SectionName))
     .Validate(o => o.MinDelayMs >= 0, "MinDelayMs must be >= 0.")
     .Validate(o => o.MaxDelayMs > o.MinDelayMs, "MaxDelayMs must be greater than MinDelayMs.")
+    .Validate(o => o.RateLimitPerMinute > 0, "RateLimitPerMinute must be > 0.")
     .ValidateOnStart();
 
 builder.Services.AddOrderProcessingServices();
@@ -25,12 +26,14 @@ var rateLimitPerMinute = builder.Configuration
 
 builder.Services.AddRateLimiter(options =>
 {
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
-        RateLimitPartition.GetFixedWindowLimiter("global", _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = rateLimitPerMinute,
-            Window = TimeSpan.FromMinutes(1)
-        }));
+    options.AddPolicy(OrderProcessingOptions.ProcessOrderRateLimitPolicy, _ =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            OrderProcessingOptions.ProcessOrderRateLimitPolicy,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = rateLimitPerMinute,
+                Window = TimeSpan.FromMinutes(1)
+            }));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
@@ -73,7 +76,7 @@ app.MapPost("/api/orders/process", async (
 
     var result = await orderProcessor.ProcessAsync(request, cancellationToken);
     return Results.Ok(result);
-});
+}).RequireRateLimiting(OrderProcessingOptions.ProcessOrderRateLimitPolicy);
 
 app.MapGet("/api/orders/stats", (IStatisticsCollector statisticsCollector) =>
 {
