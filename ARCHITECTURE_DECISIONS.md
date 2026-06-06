@@ -117,6 +117,20 @@ in BugDemoSpecs. This is the most dangerous silent bug in DI:
 
 ---
 
+## Security Headers
+
+Two response headers are added via middleware on every request:
+
+- **X-Content-Type-Options: nosniff** — prevents browsers from guessing the content type.
+  Without it, a browser might interpret a JSON response as JavaScript and execute it.
+- **X-Frame-Options: DENY** — prevents the API from being embedded inside an `<iframe>`.
+  Protects against Clickjacking attacks where a user unknowingly interacts with a hidden frame.
+
+The Server response header is suppressed via Kestrel configuration (`AddServerHeader = false`)
+to avoid exposing server implementation details to potential attackers.
+
+---
+
 ## Considered but Not Implemented
 
 **Authentication (JWT / API Key)**
