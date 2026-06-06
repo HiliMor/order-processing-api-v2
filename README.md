@@ -27,8 +27,9 @@ flowchart TD
     C --> D["RequestContext (Scoped)\nCorrelationId · UserAgent"]
     C --> E["RandomGenerator (Singleton)\nRandom delay"]
     C --> F["StatisticsCollector (Singleton)\nThread-safe metrics"]
-    G["GET /api/orders/stats"] -->|reads| F
-    H["GET /health"] --> I["Liveness: Healthy"]
+    C --> G["OrderMetrics (Singleton)\nCount · Duration · Outcome"]
+    H["GET /api/orders/stats"] -->|reads| F
+    I["GET /health"] --> J["Liveness: Healthy"]
 ```
 
 ## Project Structure
@@ -48,6 +49,7 @@ OrderProcessing.Api.Tests/
   BugDemoSpecs.cs             # Intentional bug demonstration and fix
   StatsEdgeCaseSpecs.cs       # Input validation and zero-stats baseline
   RateLimitAndHealthSpecs.cs  # Rate limiting, health check, concurrency
+  ErrorHandlingSpecs.cs       # Generic 500 response and response headers
   OrderMetricsSpecs.cs        # Custom metric measurements and outcome tags
   OrderProcessorSpecs.cs      # Success, cancellation, and failure outcomes
 ```
@@ -57,6 +59,7 @@ OrderProcessing.Api.Tests/
 - `GET /health` provides a liveness signal.
 - Structured logs include `CorrelationId` and `OrderId` through an `ILogger` scope.
 - Every response includes `X-Correlation-ID`, allowing callers to match a response to server logs.
+- Security and correlation headers are added when the response starts, including for handled errors.
 - `System.Diagnostics.Metrics` instruments processing count and duration, tagged by the
   low-cardinality `outcome` values `success`, `cancelled`, and `failed`.
 

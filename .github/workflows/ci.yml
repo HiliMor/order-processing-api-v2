@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore OrderProcessingApi.sln
+
+      - name: Verify formatting
+        run: dotnet format OrderProcessingApi.sln --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build OrderProcessingApi.sln --configuration Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test OrderProcessingApi.sln --configuration Release --no-build
+
+      - name: Audit NuGet packages
+        shell: bash
+        run: |
+          scan="$(dotnet list OrderProcessingApi.sln package --vulnerable --include-transitive --format json)"
+          echo "$scan"
+
+          if jq -e '.. | objects | select(has("vulnerabilities"))' <<< "$scan" > /dev/null; then
+            echo "Vulnerable NuGet packages detected."
+            exit 1
+          fi

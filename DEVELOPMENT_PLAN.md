@@ -87,7 +87,7 @@ Files: `Tests/StatsEdgeCaseSpecs.cs`
 
 ## Test Coverage Strategy
 
-All branches in production code must be exercised by at least one test:
+The test suite prioritizes behaviorally meaningful branches and production risks:
 
 | Branch | Covered by |
 |---|---|
@@ -98,8 +98,11 @@ All branches in production code must be exercised by at least one test:
 | StatisticsCollector.GetSnapshot — with orders | OrderApiSpecs |
 | StatisticsCollector.Record — queue trim at 5 | OrderApiSpecs (parallel) |
 | RequestContext — Scoped isolation | ServiceLifetimeSpecs |
+| RequestContext — missing and oversized UserAgent | StatsEdgeCaseSpecs |
 | StatisticsCollector — Singleton sharing | ServiceLifetimeSpecs |
 | OrderMetrics — Singleton sharing | ServiceLifetimeSpecs |
 | Wrong lifetime bug | BugDemoSpecs |
 | Fixed lifetime | BugDemoSpecs |
 | OrderProcessor — success, cancellation, and failure outcomes | OrderProcessorSpecs |
+| Exception handling — generic 500 response with security and correlation headers | ErrorHandlingSpecs |
+| Rate limiting — rejected request and unrestricted health endpoint | RateLimitAndHealthSpecs |
