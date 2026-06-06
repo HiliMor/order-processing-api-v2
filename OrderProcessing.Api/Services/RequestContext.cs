@@ -1,3 +1,5 @@
+using OrderProcessing.Api.Validation;
+
 namespace OrderProcessing.Api.Services;
 
 public sealed class RequestContext : IRequestContext
@@ -8,7 +10,18 @@ public sealed class RequestContext : IRequestContext
 
     public RequestContext(IHttpContextAccessor httpContextAccessor)
     {
-        UserAgent = httpContextAccessor.HttpContext?
-            .Request.Headers.UserAgent.ToString() ?? string.Empty;
+        var raw = httpContextAccessor.HttpContext?
+            .Request.Headers.UserAgent.ToString();
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            UserAgent = "unknown";
+        }
+        else
+        {
+            UserAgent = raw.Length > OrderValidator.MaxOrderIdLength
+                ? raw[..OrderValidator.MaxOrderIdLength]
+                : raw;
+        }
     }
 }

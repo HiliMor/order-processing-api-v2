@@ -70,7 +70,7 @@ public sealed class StatsEdgeCaseSpecs : IClassFixture<OrderApiFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(payload);
-        Assert.Equal(string.Empty, payload.UserAgent);
+        Assert.Equal("unknown", payload.UserAgent);
     }
 }
 
