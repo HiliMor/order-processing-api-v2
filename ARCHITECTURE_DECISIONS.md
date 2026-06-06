@@ -159,17 +159,35 @@ and should pass cleanly before any submission or deployment.
 
 ---
 
+## Rate Limiting
+
+Implemented with a fixed-window limiter applied **only** to `POST /api/orders/process`.
+`GET /api/orders/stats` and `GET /health` are intentionally excluded — they must remain
+accessible even when the processing endpoint is under load or rate-limited.
+
+Default: 100 requests per minute, configurable via `appsettings.json`.
+The value of 100 is arbitrary for a simulator — in production it would be determined by
+expected client traffic and server capacity.
+
+All clients currently share a single bucket. Per-client partitioning (by IP or API key)
+would be the next step for production to prevent a single client from exhausting the quota.
+
+---
+
+## Health Check
+
+Implemented at `GET /health` using .NET's built-in `AddHealthChecks()`.
+Although there are no external dependencies to probe (no database, no queue),
+the endpoint serves as a standard liveness signal for orchestrators (Docker, Kubernetes)
+and monitoring tools to verify the process is alive and responsive.
+
+---
+
 ## Considered but Not Implemented
 
 **Authentication (JWT / API Key)**
 This is a simulator with no real users. Adding authentication would add infrastructure
 complexity with no value. In production: API Key for service-to-service, JWT for user-facing.
-
-**Rate Limiting**
-.NET 8 has built-in rate limiting middleware (AddRateLimiter / UseRateLimiter).
-Implemented with a fixed-window limiter: 100 requests per minute by default, configurable via appsettings.
-The limit of 100 is arbitrary for a simulator — in a real system it would be determined by
-expected client traffic patterns and server capacity under load.
 
 **OpenTelemetry / Distributed Tracing**
 CorrelationId is generated per request and propagated through all logs and responses.
@@ -183,9 +201,3 @@ In production, the next step would be OpenTelemetry instrumentation:
 
 Not implemented here because there is no tracing infrastructure to export to,
 and adding Activity tags without an exporter would be infrastructure with no observable effect.
-
-**Health Checks**
-Implemented at `GET /health` using .NET's built-in `AddHealthChecks()`.
-Although there are no external dependencies to probe (no database, no queue),
-the endpoint serves as a standard liveness signal for orchestrators (Docker, Kubernetes)
-and monitoring tools to verify the process is alive and responsive.
