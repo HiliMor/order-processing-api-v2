@@ -15,6 +15,7 @@ Minimal API demonstrating DI lifetimes, concurrency, and state boundaries.
 | `RequestContext` | Scoped | Holds per-request data (CorrelationId, UserAgent). Must be isolated per request. |
 | `OrderProcessor` | Scoped | Depends on RequestContext. Captive dependency if Singleton. |
 | `StatisticsCollector` | Singleton | Accumulates application-wide metrics. Must survive across requests. |
+| `OrderMetrics` | Singleton | Owns thread-safe, application-wide metric instruments created once. |
 | `RandomGenerator` | Singleton | Stateless. Uses `Random.Shared` — thread-safe since .NET 6. |
 
 ## Runtime Flow
@@ -36,9 +37,10 @@ flowchart TD
 OrderProcessing.Api/
   Contracts/           # Request/response records and configuration options
   DependencyInjection/ # Service registration
-  Services/            # IRequestContext, IOrderProcessor, IStatisticsCollector, IRandomGenerator
+  Endpoints/           # Minimal API endpoint mappings
+  Services/            # Processing, request context, statistics, randomization, and metrics
   Validation/          # OrderValidator
-  Program.cs           # Wiring: middleware, DI, endpoints
+  Program.cs           # Application composition and middleware pipeline
 
 OrderProcessing.Api.Tests/
   OrderApiSpecs.cs            # Integration tests — HTTP end-to-end
@@ -46,7 +48,21 @@ OrderProcessing.Api.Tests/
   BugDemoSpecs.cs             # Intentional bug demonstration and fix
   StatsEdgeCaseSpecs.cs       # Input validation and zero-stats baseline
   RateLimitAndHealthSpecs.cs  # Rate limiting, health check, concurrency
+  OrderMetricsSpecs.cs        # Custom metric measurements and outcome tags
+  OrderProcessorSpecs.cs      # Success, cancellation, and failure outcomes
 ```
+
+## Observability
+
+- `GET /health` provides a liveness signal.
+- Structured logs include `CorrelationId` and `OrderId` through an `ILogger` scope.
+- Every response includes `X-Correlation-ID`, allowing callers to match a response to server logs.
+- `System.Diagnostics.Metrics` instruments processing count and duration, tagged by the
+  low-cardinality `outcome` values `success`, `cancelled`, and `failed`.
+
+No telemetry exporter is configured because the assignment has no monitoring backend.
+In production, OpenTelemetry could collect the custom meter and export it through OTLP
+or expose it to Prometheus.
 
 ## Run
 

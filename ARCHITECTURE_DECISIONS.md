@@ -17,6 +17,10 @@ Accumulates application-wide metrics across all requests and the full applicatio
 Scoped would reset counters on every request. Must be Singleton.
 Requires thread-safe access — multiple concurrent requests write to shared state simultaneously.
 
+### OrderMetrics → Singleton
+Owns application-wide `Counter` and `Histogram` instruments that are thread-safe and should be
+created once rather than once per request. It contains no request-specific state.
+
 ### RandomGenerator → Singleton
 Stateless — no fields, no mutable state. No reason to create a new instance per request.
 Uses Random.Shared (thread-safe since .NET 6) instead of new Random() which is not thread-safe —
@@ -134,7 +138,7 @@ in BugDemoSpecs. This is the most dangerous silent bug in DI:
 
 ## Security Headers
 
-Two response headers are added via middleware on every request:
+Two security response headers are added via middleware on every request:
 
 - **X-Content-Type-Options: nosniff** — prevents browsers from guessing the content type.
   Without it, a browser might interpret a JSON response as JavaScript and execute it.
@@ -143,6 +147,73 @@ Two response headers are added via middleware on every request:
 
 The Server response header is suppressed via Kestrel configuration (`AddServerHeader = false`)
 to avoid exposing server implementation details to potential attackers.
+
+---
+
+## Observability — Request Correlation and Structured Logging
+
+Every response includes an **X-Correlation-ID** header containing the server-generated
+CorrelationId. This lets a caller report the identifier and lets an operator find the
+corresponding server-side logs. It is an observability header, not a security control.
+
+`OrderProcessor.ProcessAsync` opens an `ILogger.BeginScope` with `CorrelationId` and `OrderId`
+as structured properties before doing any work. Every log call inside the processing operation
+inherits these properties without repeating them in each message.
+
+The console logger uses the JSON formatter with scopes enabled, so these properties are visible
+as structured fields during local execution rather than existing only inside the logging pipeline.
+
+This is a meaningful improvement over embedding `[CorrelationId=...]` manually in each message:
+- The properties are searchable as first-class fields in structured log sinks (Seq, Elasticsearch, Loki)
+- Adding a new property to the scope automatically applies to all future log lines in that operation
+- The log messages themselves stay short and readable
+
+---
+
+## Observability — System.Diagnostics.Metrics
+
+`OrderMetrics` wraps a `Meter` named `"OrderProcessing.Api"` with two instruments:
+
+| Instrument | Name | Type | Tags |
+|---|---|---|---|
+| Counter | `order_processing.operations` | `Counter<long>` | `outcome`: success / cancelled / failed |
+| Histogram | `order_processing.duration` | `Histogram<long>` | `outcome`: success / cancelled / failed |
+
+**Why IMeterFactory, not `new Meter()`?**
+`IMeterFactory` (registered via `services.AddMetrics()`) integrates with .NET's DI lifecycle —
+the factory manages meter lifetime and isolates meters created by different service providers,
+which is useful for tests. A manually created `Meter` would need an explicitly managed lifetime.
+
+**Why only `outcome` tag?**
+Tags are the dimensions along which metrics are split. `OrderId` and `CorrelationId` are
+high-cardinality values (unique per request) — using them as tags would create millions of
+time series, overwhelming any metrics backend. Outcome is a low-cardinality enum: three values max.
+
+**Local observation:**
+```
+dotnet tool install --global dotnet-counters
+dotnet-counters monitor --counters OrderProcessing.Api -- \
+  dotnet run --project OrderProcessing.Api/OrderProcessing.Api.csproj
+```
+
+**Production path:** OpenTelemetry would be configured to collect the custom meter explicitly:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter(OrderMetrics.MeterName)
+        .AddPrometheusExporter());
+```
+
+The instrumentation in `OrderMetrics` remains backend-agnostic. Prometheus is one possible
+metrics backend; an OTLP exporter could send the same measurements to an OTLP-compatible collector.
+
+**Signals and alerts in production:**
+- Health endpoint unavailable
+- Processing failure ratio above an agreed threshold
+- p95 processing duration above the service objective
+- HTTP 429 response rate, collected from ASP.NET Core HTTP server metrics
+- Runtime CPU, allocation rate, thread-pool queue length, and lock contention
 
 ---
 
@@ -191,15 +262,9 @@ and monitoring tools to verify the process is alive and responsive.
 This is a simulator with no real users. Adding authentication would add infrastructure
 complexity with no value. In production: API Key for service-to-service, JWT for user-facing.
 
-**OpenTelemetry / Distributed Tracing**
-CorrelationId is generated per request and propagated through all logs and responses.
-This is the foundation for distributed tracing — every log line is traceable to a single request.
-
-In production, the next step would be OpenTelemetry instrumentation:
-- .NET's built-in `Activity` API (which OpenTelemetry builds on) would carry CorrelationId
-  and OrderId as trace tags
-- An exporter (Jaeger, Zipkin, or OTLP) would collect and visualize traces
-- Metrics (orders processed, average duration) would be exposed via Prometheus
-
-Not implemented here because there is no tracing infrastructure to export to,
-and adding Activity tags without an exporter would be infrastructure with no observable effect.
+**OpenTelemetry Exporter**
+The metrics layer (`System.Diagnostics.Metrics`) and the CorrelationId propagation are in place.
+An OpenTelemetry `MeterProvider` would need to register `OrderMetrics.MeterName` and configure
+an exporter. Prometheus or an OTLP-compatible metrics backend could then collect the measurements.
+Jaeger and Zipkin are trace backends and would be relevant if distributed tracing were configured.
+No exporter is implemented here because the assignment provides no telemetry collector or backend.

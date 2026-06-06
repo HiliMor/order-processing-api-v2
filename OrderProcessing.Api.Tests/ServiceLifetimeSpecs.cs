@@ -37,4 +37,16 @@ public sealed class ServiceLifetimeSpecs : IClassFixture<OrderApiFactory>
 
         Assert.Same(stats1, stats2);
     }
+
+    [Fact]
+    public void OrderMetrics_ShouldBeSharedAcrossAllScopes()
+    {
+        using var scope1 = _services.CreateScope();
+        using var scope2 = _services.CreateScope();
+
+        var metrics1 = scope1.ServiceProvider.GetRequiredService<IOrderMetrics>();
+        var metrics2 = scope2.ServiceProvider.GetRequiredService<IOrderMetrics>();
+
+        Assert.Same(metrics1, metrics2);
+    }
 }

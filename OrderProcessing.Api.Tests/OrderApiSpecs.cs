@@ -31,6 +31,8 @@ public sealed class OrderApiSpecs : IClassFixture<OrderApiFactory>
         Assert.NotEqual(Guid.Empty, payload.CorrelationId);
         Assert.True(payload.DurationMs > 0);
         Assert.Equal("spec-test-agent", payload.UserAgent);
+        Assert.True(response.Headers.TryGetValues("X-Correlation-ID", out var correlationHeaders));
+        Assert.Equal(payload.CorrelationId.ToString(), Assert.Single(correlationHeaders));
     }
 
     [Fact]

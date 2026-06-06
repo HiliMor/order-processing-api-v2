@@ -64,6 +64,9 @@ public sealed class RateLimitAndHealthSpecs : IClassFixture<OrderApiFactory>
         var response = await client.PostAsJsonAsync("/api/orders/process", new ProcessOrderRequest("order-2"));
 
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("DENY", Assert.Single(response.Headers.GetValues("X-Frame-Options")));
+        Assert.Single(response.Headers.GetValues("X-Correlation-ID"));
     }
 }
 

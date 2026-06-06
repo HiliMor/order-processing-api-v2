@@ -1,5 +1,6 @@
 using OrderProcessing.Api.DependencyInjection;
 using OrderProcessing.Api.Endpoints;
+using OrderProcessing.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,8 @@ app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
+    var requestContext = context.RequestServices.GetRequiredService<IRequestContext>();
+    context.Response.Headers.Append("X-Correlation-ID", requestContext.CorrelationId.ToString());
     await next();
 });
 

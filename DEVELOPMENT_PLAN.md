@@ -99,5 +99,7 @@ All branches in production code must be exercised by at least one test:
 | StatisticsCollector.Record — queue trim at 5 | OrderApiSpecs (parallel) |
 | RequestContext — Scoped isolation | ServiceLifetimeSpecs |
 | StatisticsCollector — Singleton sharing | ServiceLifetimeSpecs |
+| OrderMetrics — Singleton sharing | ServiceLifetimeSpecs |
 | Wrong lifetime bug | BugDemoSpecs |
 | Fixed lifetime | BugDemoSpecs |
+| OrderProcessor — success, cancellation, and failure outcomes | OrderProcessorSpecs |
