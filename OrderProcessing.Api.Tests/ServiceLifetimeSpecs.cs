@@ -27,6 +27,20 @@ public sealed class ServiceLifetimeSpecs : IClassFixture<OrderApiFactory>
     }
 
     [Fact]
+    public void OrderProcessor_ShouldBeSharedWithinScope_AndIsolatedAcrossScopes()
+    {
+        using var scope1 = _services.CreateScope();
+        using var scope2 = _services.CreateScope();
+
+        var processor1a = scope1.ServiceProvider.GetRequiredService<IOrderProcessor>();
+        var processor1b = scope1.ServiceProvider.GetRequiredService<IOrderProcessor>();
+        var processor2 = scope2.ServiceProvider.GetRequiredService<IOrderProcessor>();
+
+        Assert.Same(processor1a, processor1b);
+        Assert.NotSame(processor1a, processor2);
+    }
+
+    [Fact]
     public void StatisticsCollector_ShouldBeSharedAcrossAllScopes()
     {
         using var scope1 = _services.CreateScope();
@@ -48,5 +62,17 @@ public sealed class ServiceLifetimeSpecs : IClassFixture<OrderApiFactory>
         var metrics2 = scope2.ServiceProvider.GetRequiredService<IOrderMetrics>();
 
         Assert.Same(metrics1, metrics2);
+    }
+
+    [Fact]
+    public void RandomGenerator_ShouldBeSharedAcrossAllScopes()
+    {
+        using var scope1 = _services.CreateScope();
+        using var scope2 = _services.CreateScope();
+
+        var random1 = scope1.ServiceProvider.GetRequiredService<IRandomGenerator>();
+        var random2 = scope2.ServiceProvider.GetRequiredService<IRandomGenerator>();
+
+        Assert.Same(random1, random2);
     }
 }

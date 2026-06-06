@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OrderProcessing.Api.Services;
 
 namespace OrderProcessing.Api.Tests;
@@ -15,6 +16,7 @@ public sealed class BugDemoSpecs
                 builder.UseSetting("environment", "Testing");
                 builder.ConfigureServices(services =>
                 {
+                    services.RemoveAll<IRequestContext>();
                     services.AddSingleton<IRequestContext, RequestContext>();
                 });
             });
