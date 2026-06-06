@@ -6,6 +6,19 @@ namespace OrderProcessing.Api.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
+    public static IServiceCollection AddOrderProcessingOptions(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<OrderProcessingOptions>()
+            .Bind(configuration.GetSection(OrderProcessingOptions.SectionName))
+            .Validate(o => o.MinDelayMs >= 0, "MinDelayMs must be >= 0.")
+            .Validate(o => o.MaxDelayMs > o.MinDelayMs, "MaxDelayMs must be greater than MinDelayMs.")
+            .Validate(o => o.RateLimitPerMinute > 0, "RateLimitPerMinute must be > 0.")
+            .ValidateOnStart();
+        return services;
+    }
+
     public static IServiceCollection AddOrderProcessingServices(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();

@@ -1,19 +1,11 @@
-using OrderProcessing.Api.Contracts;
 using OrderProcessing.Api.DependencyInjection;
-using OrderProcessing.Api.Services;
-using OrderProcessing.Api.Validation;
+using OrderProcessing.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
-builder.Services.AddOptions<OrderProcessingOptions>()
-    .Bind(builder.Configuration.GetSection(OrderProcessingOptions.SectionName))
-    .Validate(o => o.MinDelayMs >= 0, "MinDelayMs must be >= 0.")
-    .Validate(o => o.MaxDelayMs > o.MinDelayMs, "MaxDelayMs must be greater than MinDelayMs.")
-    .Validate(o => o.RateLimitPerMinute > 0, "RateLimitPerMinute must be > 0.")
-    .ValidateOnStart();
-
+builder.Services.AddOrderProcessingOptions(builder.Configuration);
 builder.Services.AddOrderProcessingServices();
 builder.Services.AddOrderProcessingRateLimiter(builder.Configuration);
 builder.Services.AddHealthChecks();
@@ -31,9 +23,6 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-app.UseHttpsRedirection();
-app.UseRateLimiter();
-
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
@@ -41,34 +30,16 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseHttpsRedirection();
+app.UseRateLimiter();
+
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.MapHealthChecks("/health");
-
-app.MapPost("/api/orders/process", async (
-    ProcessOrderRequest request,
-    IOrderProcessor orderProcessor,
-    CancellationToken cancellationToken) =>
-{
-    if (!OrderValidator.IsValidOrderId(request.OrderId))
-        return Results.BadRequest(new { error = $"orderId is required and must not exceed {OrderValidator.MaxOrderIdLength} characters." });
-
-    var result = await orderProcessor.ProcessAsync(request, cancellationToken);
-    return Results.Ok(result);
-}).RequireRateLimiting(OrderProcessingOptions.ProcessOrderRateLimitPolicy);
-
-app.MapGet("/api/orders/stats", (IStatisticsCollector statisticsCollector) =>
-{
-    var snapshot = statisticsCollector.GetSnapshot();
-    return Results.Ok(new OrderStatsResponse(
-        snapshot.TotalOrdersProcessed,
-        snapshot.AverageProcessingDurationMs,
-        snapshot.LastFiveProcessingDurationsMs));
-});
+app.MapOrderProcessingEndpoints();
 
 app.Run();
 
