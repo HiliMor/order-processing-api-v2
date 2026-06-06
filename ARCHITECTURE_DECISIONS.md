@@ -19,8 +19,8 @@ Requires thread-safe access — multiple concurrent requests write to shared sta
 
 ### RandomGenerator → Singleton
 Stateless — no fields, no mutable state. No reason to create a new instance per request.
-Uses Random.Shared (thread-safe since .NET 6) instead of new Random() which is not thread-safe
-and returns 0 under concurrent access.
+Uses Random.Shared (thread-safe since .NET 6) instead of new Random() which is not thread-safe —
+sharing a single Random instance across threads without synchronization produces undefined behavior.
 
 ---
 
@@ -91,9 +91,10 @@ snapshot consistent with the counters.
 We need two fields updated together — only lock guarantees that.
 
 **Lock contention under load:**
-The lock body contains only field increments and a queue enqueue — nanoseconds of work.
-Under high concurrency, threads compete for the lock but wait an insignificant amount of time.
-This is intentional: keeping the lock body minimal eliminates contention as a concern.
+The lock body contains only field increments and a queue enqueue — a very short critical section.
+Under high concurrency, threads compete for the lock but the wait time is expected to be negligible.
+To verify this in production, tools like `dotnet-counters` or `dotnet-trace` can measure
+actual lock contention and confirm it is not a bottleneck.
 
 If the lock body were expensive (e.g. database write, heavy computation, or I/O),
 the appropriate solutions would be:

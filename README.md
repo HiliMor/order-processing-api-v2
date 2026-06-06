@@ -52,9 +52,11 @@ dotnet run --project OrderProcessing.Api/OrderProcessing.Api.csproj
 ### 1. Why is RequestContext not Singleton?
 
 RequestContext holds data unique to a single HTTP request: CorrelationId, UserAgent, and StartTime.
-If registered as Singleton, one instance would be shared across all concurrent requests.
-Request A writes CorrelationId="AAA", Request B overwrites it with "BBB" — Request A's logs
-are now untraceable. In a system with UserId, this would be a critical security vulnerability:
+All properties are set once in the constructor and never change (immutable).
+If registered as Singleton, one instance would be shared across all concurrent requests —
+all requests would carry the CorrelationId and UserAgent captured at application startup.
+Request A and Request B would be indistinguishable in logs.
+In a system with UserId, this would be a critical security vulnerability:
 User A could see User B's data.
 
 It must be Scoped so each request gets its own isolated instance, bound to the HttpContext lifecycle.
