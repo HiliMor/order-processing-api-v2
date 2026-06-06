@@ -156,10 +156,20 @@ The limit of 100 is arbitrary for a simulator — in a real system it would be d
 expected client traffic patterns and server capacity under load.
 
 **OpenTelemetry / Distributed Tracing**
-CorrelationId is propagated through all responses and logs, which is the foundation
-for distributed tracing. Full OpenTelemetry instrumentation (traces, metrics, logs)
-would be the next step for a production system.
+CorrelationId is generated per request and propagated through all logs and responses.
+This is the foundation for distributed tracing — every log line is traceable to a single request.
+
+In production, the next step would be OpenTelemetry instrumentation:
+- .NET's built-in `Activity` API (which OpenTelemetry builds on) would carry CorrelationId
+  and OrderId as trace tags
+- An exporter (Jaeger, Zipkin, or OTLP) would collect and visualize traces
+- Metrics (orders processed, average duration) would be exposed via Prometheus
+
+Not implemented here because there is no tracing infrastructure to export to,
+and adding Activity tags without an exporter would be infrastructure with no observable effect.
 
 **Health Checks**
-No external dependencies (no database, no message queue) — a health check would
-always return Healthy and add no diagnostic value here.
+Implemented at `GET /health` using .NET's built-in `AddHealthChecks()`.
+Although there are no external dependencies to probe (no database, no queue),
+the endpoint serves as a standard liveness signal for orchestrators (Docker, Kubernetes)
+and monitoring tools to verify the process is alive and responsive.

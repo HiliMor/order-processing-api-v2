@@ -15,6 +15,7 @@ builder.Services.AddOptions<OrderProcessingOptions>()
     .ValidateOnStart();
 
 builder.Services.AddOrderProcessingServices();
+builder.Services.AddHealthChecks();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -59,6 +60,8 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.MapHealthChecks("/health");
 
 app.MapPost("/api/orders/process", async (
     ProcessOrderRequest request,
