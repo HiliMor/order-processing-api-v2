@@ -70,16 +70,15 @@ public sealed class RateLimitAndHealthSpecs : IClassFixture<OrderApiFactory>
 public sealed class StatisticsCollectorConcurrencySpecs
 {
     [Fact]
-    public void StatisticsCollector_ShouldRecordExactCount_UnderHighConcurrency()
+    public async Task StatisticsCollector_ShouldRecordExactCount_UnderHighConcurrency()
     {
         var collector = new StatisticsCollector();
         const int threadCount = 100;
 
         var tasks = Enumerable.Range(0, threadCount)
-            .Select(_ => Task.Run(() => collector.Record(TimeSpan.FromMilliseconds(10))))
-            .ToArray();
+            .Select(_ => Task.Run(() => collector.Record(TimeSpan.FromMilliseconds(10))));
 
-        Task.WaitAll(tasks);
+        await Task.WhenAll(tasks);
 
         var snapshot = collector.GetSnapshot();
         Assert.Equal(threadCount, snapshot.TotalOrdersProcessed);
