@@ -32,20 +32,37 @@ public sealed class OrderProcessor : IOrderProcessor
             request.OrderId, _requestContext.CorrelationId);
 
         var delayMs = _randomGenerator.NextDurationMs(_options.MinDelayMs, _options.MaxDelayMs);
-
         var stopwatch = Stopwatch.StartNew();
-        await Task.Delay(delayMs, cancellationToken);
-        stopwatch.Stop();
 
-        _statisticsCollector.Record(stopwatch.Elapsed);
+        try
+        {
+            await Task.Delay(delayMs, cancellationToken);
+            stopwatch.Stop();
 
-        _logger.LogInformation("Order {OrderId} completed in {DurationMs}ms [CorrelationId={CorrelationId}]",
-            request.OrderId, stopwatch.ElapsedMilliseconds, _requestContext.CorrelationId);
+            _statisticsCollector.Record(stopwatch.Elapsed);
 
-        return new ProcessOrderResponse(
-            request.OrderId,
-            _requestContext.CorrelationId,
-            _requestContext.UserAgent,
-            stopwatch.ElapsedMilliseconds);
+            _logger.LogInformation("Order {OrderId} completed in {DurationMs}ms [CorrelationId={CorrelationId}]",
+                request.OrderId, stopwatch.ElapsedMilliseconds, _requestContext.CorrelationId);
+
+            return new ProcessOrderResponse(
+                request.OrderId,
+                _requestContext.CorrelationId,
+                _requestContext.UserAgent,
+                stopwatch.ElapsedMilliseconds);
+        }
+        catch (OperationCanceledException)
+        {
+            stopwatch.Stop();
+            _logger.LogInformation("Order {OrderId} cancelled by client after {DurationMs}ms [CorrelationId={CorrelationId}]",
+                request.OrderId, stopwatch.ElapsedMilliseconds, _requestContext.CorrelationId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "Order {OrderId} failed after {DurationMs}ms [CorrelationId={CorrelationId}]",
+                request.OrderId, stopwatch.ElapsedMilliseconds, _requestContext.CorrelationId);
+            throw;
+        }
     }
 }
