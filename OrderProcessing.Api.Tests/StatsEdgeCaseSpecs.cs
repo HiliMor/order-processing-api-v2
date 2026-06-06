@@ -33,6 +33,45 @@ public sealed class StatsEdgeCaseSpecs : IClassFixture<OrderApiFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Fact]
+    public async Task ProcessOrder_ShouldReturn200_WhenOrderIdIsExactly256Characters()
+    {
+        var maxOrderId = new string('x', 256);
+        var response = await _client.PostAsJsonAsync(
+            "/api/orders/process",
+            new ProcessOrderRequest(maxOrderId));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ProcessOrder_ShouldReturnUniqueCorrelationId_PerRequest()
+    {
+        var response1 = await _client.PostAsJsonAsync("/api/orders/process", new ProcessOrderRequest("order-a"));
+        var response2 = await _client.PostAsJsonAsync("/api/orders/process", new ProcessOrderRequest("order-b"));
+
+        var payload1 = await response1.Content.ReadFromJsonAsync<ProcessOrderResponse>();
+        var payload2 = await response2.Content.ReadFromJsonAsync<ProcessOrderResponse>();
+
+        Assert.NotNull(payload1);
+        Assert.NotNull(payload2);
+        Assert.NotEqual(payload1.CorrelationId, payload2.CorrelationId);
+    }
+
+    [Fact]
+    public async Task ProcessOrder_ShouldReturnEmptyUserAgent_WhenNotProvided()
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/orders/process",
+            new ProcessOrderRequest("order-no-agent"));
+
+        var payload = await response.Content.ReadFromJsonAsync<ProcessOrderResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(payload);
+        Assert.Equal(string.Empty, payload.UserAgent);
+    }
 }
 
 // Isolated in its own class so the StatisticsCollector Singleton starts fresh,
