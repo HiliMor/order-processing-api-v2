@@ -72,6 +72,24 @@ public sealed class StatsEdgeCaseSpecs : IClassFixture<OrderApiFactory>
         Assert.NotNull(payload);
         Assert.Equal("unknown", payload.UserAgent);
     }
+
+    [Fact]
+    public async Task ProcessOrder_ShouldTruncateUserAgent_WhenItExceeds256Characters()
+    {
+        var longUserAgent = new string('a', 300);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/orders/process")
+        {
+            Content = JsonContent.Create(new ProcessOrderRequest("order-long-agent"))
+        };
+        request.Headers.Add("User-Agent", longUserAgent);
+
+        using var response = await _client.SendAsync(request);
+        var payload = await response.Content.ReadFromJsonAsync<ProcessOrderResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(payload);
+        Assert.Equal(longUserAgent[..256], payload.UserAgent);
+    }
 }
 
 // Isolated in its own class so the StatisticsCollector Singleton starts fresh,

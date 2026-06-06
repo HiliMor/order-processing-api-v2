@@ -26,10 +26,14 @@ app.UseExceptionHandler(errorApp =>
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Append("X-Frame-Options", "DENY");
     var requestContext = context.RequestServices.GetRequiredService<IRequestContext>();
-    context.Response.Headers.Append("X-Correlation-ID", requestContext.CorrelationId.ToString());
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+        context.Response.Headers["X-Correlation-ID"] = requestContext.CorrelationId.ToString();
+        return Task.CompletedTask;
+    });
     await next();
 });
 
