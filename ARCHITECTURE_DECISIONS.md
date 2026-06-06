@@ -90,6 +90,18 @@ snapshot consistent with the counters.
 **Why not Interlocked?** Interlocked operates on a single field atomically.
 We need two fields updated together — only lock guarantees that.
 
+**Lock contention under load:**
+The lock body contains only field increments and a queue enqueue — nanoseconds of work.
+Under high concurrency, threads compete for the lock but wait an insignificant amount of time.
+This is intentional: keeping the lock body minimal eliminates contention as a concern.
+
+If the lock body were expensive (e.g. database write, heavy computation, or I/O),
+the appropriate solutions would be:
+- Extract computation outside the lock, lock only the write
+- `ReaderWriterLockSlim` — allows parallel reads, exclusive lock only on writes
+- `Channel<T>` — threads enqueue data without locking; a single consumer updates state,
+  eliminating contention entirely
+
 ---
 
 ## Input Validation
