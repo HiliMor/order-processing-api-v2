@@ -1,6 +1,7 @@
 using OrderProcessing.Api.Contracts;
 using OrderProcessing.Api.DependencyInjection;
 using OrderProcessing.Api.Services;
+using OrderProcessing.Api.Validation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,9 @@ app.MapPost("/api/orders/process", async (
     IOrderProcessor orderProcessor,
     CancellationToken cancellationToken) =>
 {
+    if (!OrderValidator.IsValidOrderId(request.OrderId))
+        return Results.BadRequest(new { error = $"orderId is required and must not exceed {OrderValidator.MaxOrderIdLength} characters." });
+
     var result = await orderProcessor.ProcessAsync(request, cancellationToken);
     return Results.Ok(result);
 });
